@@ -1,6 +1,6 @@
 import os
 
-id = '138597392'
+id = input('Введите id страницы пользователя VK: ')
 vk_token = ''
 version = '5.131'
 
