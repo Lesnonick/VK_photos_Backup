@@ -114,10 +114,10 @@ if __name__ == '__main__':
     url_base = vk.get_VK_profile_photos()
     ya = YaUploader(settings.ya_TOKEN)
     upload_logger.info(f"All links was received")
-    folder_path = ya.new_folder('', '/id' + str(settings.id) + '_VK_backup' + str(i))
+    folder_path = ya.new_folder('', '/id' + str(settings.id) + '_VK_backup')
     likes_data = {}
     for key, value in tqdm(url_base.items(), ncols=100, colour='blue',
-                            bar_format='Загрузка: {l_bar}{bar} Осталось примерно: {remaining}'):
+                           bar_format='Загрузка: {l_bar}{bar} Осталось примерно: {remaining}'):
         likes, data = value[0], value[1]
         if likes in likes_data.keys():
             good_link = ya.upload_from_internet(key, f'{folder_path}/{likes}_{data}.jpg')
