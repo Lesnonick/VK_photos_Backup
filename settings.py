@@ -5,4 +5,3 @@ vk_token = 'vk1.a.R34l1g01Hco9Ag-oWE_IeHV_1pBQUEswq6pn98fJTaG8C-oIKsRnuIplDOIg92
 version = '5.131'
 
 ya_TOKEN = input('Введите ТОКЕН с Полигона Янекс.Диска: ')
-script_dir = os.getcwd()

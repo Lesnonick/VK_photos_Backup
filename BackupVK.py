@@ -1,12 +1,9 @@
-import time
-
+import json
 import requests
 import settings
 import logging
 import datetime
 from tqdm import tqdm
-import time
-from pprint import pprint
 
 
 def Unixdate_to_date(Unixtime):
@@ -36,7 +33,6 @@ class VkDownload:
         else:
             return -1
 
-
     def get_VK_profile_photos(self):
         URL = 'https://api.vk.com/method/photos.get'
         params = {
@@ -55,7 +51,7 @@ class VkDownload:
             likes = item['likes']['count']
             date = Unixdate_to_date(item['date'])
             sizes = sorted(item['sizes'], key=self.sort_size)
-            url_base[sizes[-1]['url']] = likes, date
+            url_base[sizes[-1]['url']] = likes, date, sizes[-1]['type']
             # url_base[date] = likes, date Для проверки ERROR в логгинге
         return url_base
 
@@ -115,7 +111,6 @@ class YaUploader:
         return response.json()['status']
 
 
-
 upload_logger = logging.getLogger('Upload_logger')
 upload_logger.setLevel(logging.INFO)
 upload_handler = logging.FileHandler("Upload_logger.log", mode="w")
@@ -130,18 +125,25 @@ if __name__ == '__main__':
     upload_logger.info("All links was received")
     folder_path = ya.new_folder('disk:', '/id' + str(settings.id) + '_VK_backup')
     likes_date = {}
-    upload_fails = {}
+    to_json = []
     for link, value in tqdm(url_base.items(), ncols=100, colour='blue',
                             bar_format='Загрузка: {l_bar}{bar}{r_bar} Осталось примерно: {remaining}'):
-        likes, date = value[0], value[1]
+        likes, date, size = value[0], value[1], value[2]
         short_name = f'{likes}.jpg'
         if likes in likes_date.keys():
             long_name = f'{likes}_{date}.jpg'
             new_name = f'{likes}_{likes_date[likes]}.jpg'
             status = ya.upload_from_internet(link, folder_path + '/' + long_name)
             upload_logger.info(f"{link} status: {status}")
-            ya.rename_file(folder_path, short_name, new_name)
+            to_json.append({'filename': long_name, 'link': link, 'size': size})
+            for file in to_json:
+                if file['filename'] == short_name:
+                    ya.rename_file(folder_path, short_name, new_name)
+                    file['filename'] = new_name
         else:
             status = ya.upload_from_internet(link, folder_path + '/' + short_name)
             upload_logger.info(f"{link} status: {status}")
+            to_json.append({'filename': short_name, 'link': link, 'size': size})
             likes_date[likes] = date
+    with open('files_info.json', 'w') as f:
+        f.write(json.dumps(to_json))
