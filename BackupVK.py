@@ -1,9 +1,13 @@
+import time
+
 import requests
 import settings
 import logging
 import datetime
 from tqdm import tqdm
-from time import sleep
+import time
+from pprint import pprint
+
 
 def Unixdate_to_date(Unixtime):
     date = datetime.datetime.fromtimestamp(Unixtime)
@@ -32,6 +36,7 @@ class VkDownload:
         else:
             return -1
 
+
     def get_VK_profile_photos(self):
         URL = 'https://api.vk.com/method/photos.get'
         params = {
@@ -39,7 +44,8 @@ class VkDownload:
             'access_token': self.token,
             'v': self.version,
             'album_id': 'profile',
-            'extended': '1'
+            'extended': '1',
+            'count': 1000
         }
         res = requests.get(URL, params=params).json()
         items = res['response']['items']
@@ -73,12 +79,14 @@ class YaUploader:
             'url': url,
             'path': yandex_path
         }
-        responce = requests.post(request_url, params=params, headers=self.get_headers())
-        if 'error' in dict(responce.json()).keys():
-            upload_logger.error(dict(responce.json())['error'] + ' link: ' + url)
-            return False
-        else:
-            return True
+        response = requests.post(request_url, params=params, headers=self.get_headers())
+        operation_id = response.json()['href']
+        status = self.get_status(operation_id)
+        while status == 'in-progress':
+            status = self.get_status(operation_id)
+            if status == 'failed':
+                status = self.upload_from_internet(url, yandex_path)
+        return status
 
     def new_folder(self, yandex_path, folder_name):
         uri = 'v1/disk/resources/'
@@ -99,7 +107,13 @@ class YaUploader:
             'from': file_path,
             'path': new_file_path
         }
-        requests.post(request_url, params=params, headers=self.get_headers())
+        response = requests.post(request_url, params=params, headers=self.get_headers())
+
+    def get_status(self, request_url):
+        params = {}
+        response = requests.get(request_url, params=params, headers=self.get_headers())
+        return response.json()['status']
+
 
 
 upload_logger = logging.getLogger('Upload_logger')
@@ -113,17 +127,21 @@ if __name__ == '__main__':
     vk = VkDownload(settings.version, settings.vk_token, settings.id)
     url_base = vk.get_VK_profile_photos()
     ya = YaUploader(settings.ya_TOKEN)
-    upload_logger.info(f"All links was received")
-    folder_path = ya.new_folder('', '/id' + str(settings.id) + '_VK_backup')
-    likes_data = {}
-    for key, value in tqdm(url_base.items(), ncols=100, colour='blue',
-                           bar_format='Загрузка: {l_bar}{bar} Осталось примерно: {remaining}'):
-        likes, data = value[0], value[1]
-        if likes in likes_data.keys():
-            good_link = ya.upload_from_internet(key, f'{folder_path}/{likes}_{data}.jpg')
-            ya.rename_file(folder_path, f'{likes}.jpg', f'{likes}_{likes_data[likes]}.jpg')
+    upload_logger.info("All links was received")
+    folder_path = ya.new_folder('disk:', '/id' + str(settings.id) + '_VK_backup')
+    likes_date = {}
+    upload_fails = {}
+    for link, value in tqdm(url_base.items(), ncols=100, colour='blue',
+                            bar_format='Загрузка: {l_bar}{bar}{r_bar} Осталось примерно: {remaining}'):
+        likes, date = value[0], value[1]
+        short_name = f'{likes}.jpg'
+        if likes in likes_date.keys():
+            long_name = f'{likes}_{date}.jpg'
+            new_name = f'{likes}_{likes_date[likes]}.jpg'
+            status = ya.upload_from_internet(link, folder_path + '/' + long_name)
+            upload_logger.info(f"{link} status: {status}")
+            ya.rename_file(folder_path, short_name, new_name)
         else:
-            good_link = ya.upload_from_internet(key, f'{folder_path}/{likes}.jpg')
-            likes_data[likes] = data
-        if good_link:
-            upload_logger.info(f"The image was moved to the Ya.Disk folder by the link: {key}")
+            status = ya.upload_from_internet(link, folder_path + '/' + short_name)
+            upload_logger.info(f"{link} status: {status}")
+            likes_date[likes] = date
