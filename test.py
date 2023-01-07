@@ -28,7 +28,6 @@ class YaUploader:
             names.extend(list(name.values()))
         return names
 
-
     def file_delete(self, yandex_path):
         uri = 'v1/disk/resources'
         request_url = self.base_host + uri
@@ -36,6 +35,17 @@ class YaUploader:
             'path': yandex_path
         }
         response = requests.delete(request_url, params=params, headers=self.get_headers())
+
+    def rename_file(self, yandex_path, init_name, name):
+        uri = 'v1/disk/resources/move/'
+        request_url = self.base_host + uri
+        file_path = yandex_path + '/' + init_name
+        new_file_path = yandex_path + '/' + name
+        params = {
+            'from': file_path,
+            'path': new_file_path
+        }
+        response = requests.post(request_url, params=params, headers=self.get_headers())
 
 
 ya = YaUploader(settings.ya_TOKEN)
